@@ -793,13 +793,15 @@
                     `, 'max-w-3xl h-[85vh] flex flex-col');
                 },
 
-                openDayModal: (dateStr) => {
+                // UPDATED: Accepts optional initialTab argument
+                openDayModal: (dateStr, initialTab = 'General') => {
                     const event = Store.get().events.find(e => e.id === app.state.activeEventId);
                     app.state.activeDay = dateStr;
-                    app.state.activeTab = 'General';
+                    app.state.activeTab = initialTab;
                     app.ui.renderModal(app.ui.buildDayModalContent(event.days[dateStr], dateStr), 'w-[95%] max-w-2xl h-[85vh] flex flex-col');
                 },
 
+                // UPDATED: Uses wrapped pill layout for tabs AND makes highlights interactive
                 buildDayModalContent: (dayData, dateStr) => {
                     const activeTab = app.state.activeTab || 'General';
                     const checklists = dayData.checklists[activeTab] || [];
@@ -814,11 +816,18 @@
                             <div id="add-highlight-form" class="hidden mb-4 animate-fade-in">
                                 <div class="flex items-center gap-2"><input type="text" id="new-highlight-name" class="flex-1 bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-gray-700 rounded px-3 py-2 text-sm outline-none" placeholder="Activity name..." onkeypress="if(event.key==='Enter')app.handlers.submitHighlight()"><button onclick="app.handlers.submitHighlight()" class="bg-gold-500 text-white p-2 rounded"><i class="ph ph-check"></i></button><button onclick="app.handlers.hideAddHighlightInput()" class="text-gray-400 p-2"><i class="ph ph-x"></i></button></div>
                             </div>
-                            <div class="flex flex-wrap gap-2">${dayData.highlights.length===0?'<span class="text-sm text-gray-400 italic">No highlights.</span>':dayData.highlights.map(h=>`<div class="bg-cream dark:bg-charcoal border border-gold-500/20 px-3 py-1.5 rounded-xl text-sm flex items-center gap-2 max-w-full"><span class="break-words min-w-0 flex-1">${h}</span><i onclick="app.handlers.removeHighlight('${h}')" class="ph ph-x text-xs cursor-pointer text-gray-400 hover:text-red-500 flex-none"></i></div>`).join('')}</div>
+                            <div class="flex flex-wrap gap-2">${dayData.highlights.length===0?'<span class="text-sm text-gray-400 italic">No highlights.</span>':dayData.highlights.map(h=>`
+                                <div onclick="app.handlers.switchTab('${h.replace(/'/g, "\\'")}')" class="cursor-pointer ${activeTab===h ? 'bg-gold-50 dark:bg-gold-900/20 border-gold-500 ring-1 ring-gold-500' : 'bg-cream dark:bg-charcoal border-gold-500/20 hover:border-gold-500'} border px-3 py-1.5 rounded-xl text-sm flex items-center gap-2 max-w-full transition-all">
+                                    <span class="break-words min-w-0 flex-1 ${activeTab===h ? 'text-gold-700 dark:text-gold-400 font-medium' : ''}">${h}</span>
+                                    <button onclick="event.stopPropagation(); app.handlers.removeHighlight('${h.replace(/'/g, "\\'")}')" class="ph ph-x text-xs cursor-pointer text-gray-400 hover:text-red-500 flex-none p-1 -mr-1"></button>
+                                </div>
+                            `).join('')}</div>
                         </div>
-                        <div class="flex-none flex gap-4 overflow-x-auto border-b border-gray-200 dark:border-gray-700 mb-4 no-scrollbar">
-                            <button onclick="app.handlers.switchTab('General')" class="pb-2 text-sm font-medium whitespace-nowrap border-b-2 ${activeTab==='General'?'border-maroon-500 text-maroon-500 dark:text-white dark:border-white':'border-transparent text-gray-400'}">General</button>
-                            ${dayData.highlights.map(h=>`<button onclick="app.handlers.switchTab('${h}')" class="pb-2 text-sm font-medium whitespace-nowrap border-b-2 ${activeTab===h?'border-maroon-500 text-maroon-500 dark:text-white dark:border-white':'border-transparent text-gray-400'}">${h}</button>`).join('')}
+                        <div class="flex-none mb-4">
+                            <div class="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700 pb-4">
+                                <button onclick="app.handlers.switchTab('General')" class="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${activeTab==='General'?'bg-maroon-500 text-white shadow-md':'bg-gray-100 dark:bg-white/5 text-gray-500 hover:bg-gray-200 dark:hover:bg-white/10'}">General</button>
+                                ${dayData.highlights.map(h=>`<button onclick="app.handlers.switchTab('${h.replace(/'/g, "\\'")}')" class="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${activeTab===h?'bg-maroon-500 text-white shadow-md':'bg-gray-100 dark:bg-white/5 text-gray-500 hover:bg-gray-200 dark:hover:bg-white/10'}">${h}</button>`).join('')}
+                            </div>
                         </div>
                         <div class="flex-1 overflow-y-auto relative min-h-0 pr-1">
                             <div class="flex justify-between items-center mb-3 sticky top-0 bg-white dark:bg-[#1E1E1E] z-10 py-2"><span class="text-xs font-bold text-gray-400 uppercase">Checklist: ${activeTab}</span><button onclick="app.handlers.autoList()" class="text-xs bg-gold-500/10 text-gold-600 dark:text-gold-400 px-2 py-1 rounded hover:bg-gold-500 hover:text-white transition-colors flex items-center gap-1"><i class="ph ph-magic-wand"></i> Auto-List</button></div>
@@ -1019,24 +1028,26 @@
                     app.ui.openAutoListModal(context);
                 },
 
-                // NEW: Handler for the auto-list modal submission
+                // UPDATED: Captures active tab correctly before resetting view
                 submitAutoList: async () => {
                     const notes = document.getElementById('auto-list-input').value;
-                    const context = app.state.activeTab === 'General' ? 'General Preparation' : app.state.activeTab;
+                    const targetTab = app.state.activeTab; // Capture this BEFORE opening modal
+                    const context = targetTab === 'General' ? 'General Preparation' : targetTab;
                     
                     // Restore day view temporarily while loading to avoid abrupt empty screen
-                    app.ui.openDayModal(app.state.activeDay); 
+                    // Pass targetTab so the UI re-opens on the correct tab
+                    app.ui.openDayModal(app.state.activeDay, targetTab); 
                     app.showToast('Consulting AI...');
                     
                     try {
                         const items = await AI.generateChecklist(context, notes);
                         const evt = Store.get().events.find(e => e.id === app.state.activeEventId);
                         
-                        items.forEach(t => evt.days[app.state.activeDay].checklists[app.state.activeTab].push({text: t, done: false}));
+                        items.forEach(t => evt.days[app.state.activeDay].checklists[targetTab].push({text: t, done: false}));
                         Store.updateEvent(evt);
                         
                         // Refresh the view
-                        app.handlers.switchTab(app.state.activeTab); 
+                        app.handlers.switchTab(targetTab); 
                         app.render(); 
                         app.showToast(`Added ${items.length} tasks`);
                     } catch(e) { 
