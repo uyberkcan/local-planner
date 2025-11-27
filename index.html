@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
     <!-- Dynamic Status Bar Colors for Mobile -->
     <meta name="theme-color" content="#FDFBF7" media="(prefers-color-scheme: light)">
@@ -89,7 +89,7 @@
             animation: fadeIn 0.4s ease-out forwards;
         }
         
-        /* New: Slide animation for calendar months */
+        /* Slide animation for calendar months */
         @keyframes slideFade {
             0% { opacity: 0; transform: translateX(10px); }
             100% { opacity: 1; transform: translateX(0); }
@@ -98,6 +98,7 @@
             animation: slideFade 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
         
+        /* Shimmer Effect */
         @keyframes shimmer {
             0% { background-position: -200% 0; }
             100% { background-position: 200% 0; }
@@ -131,15 +132,27 @@
         .safe-pb {
             padding-bottom: env(safe-area-inset-bottom);
         }
+        .safe-pt {
+            padding-top: env(safe-area-inset-top);
+        }
+
+        /* Utility */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
     </style>
 </head>
-<!-- UPDATED BODY: Used h-[100dvh] for reliable mobile viewport height -->
-<body class="bg-gradient-to-br from-[#FDFBF7] via-[#F4EBD0] to-[#E0C998] text-charcoal dark:from-[#0F0F0F] dark:via-[#1F1216] dark:to-[#3D0E18] dark:text-gray-200 transition-colors duration-500 font-sans antialiased h-[100dvh] flex flex-col overflow-hidden bg-fixed">
+
+<body class="bg-gradient-to-br from-[#FDFBF7] via-[#F4EBD0] to-[#E0C998] text-charcoal dark:from-[#0F0F0F] dark:via-[#1F1216] dark:to-[#3D0E18] dark:text-gray-200 transition-colors duration-500 font-sans antialiased h-[100dvh] w-screen flex flex-col overflow-hidden bg-fixed safe-pt">
 
     <!-- Header -->
-    <header class="flex-none px-6 py-5 flex justify-between items-center z-20 glass-panel border-b border-gold-500/20">
+    <header class="flex-none px-6 py-4 flex justify-between items-center z-20 glass-panel border-b border-gold-500/20 shadow-sm">
         <!-- Logo Container -->
-        <div class="inline-flex flex-col cursor-pointer group" onclick="app.router.navigate('dashboard')">
+        <div class="inline-flex flex-col cursor-pointer group select-none" onclick="app.router.navigate('dashboard')">
             <h1 class="font-serif text-2xl font-bold text-maroon-600 dark:text-gold-500 leading-none tracking-widest">UYAN</h1>
             <div class="flex justify-between w-full text-[0.65rem] text-gray-500 dark:text-gray-400 font-sans font-bold mt-1 uppercase">
                 <span>P</span><span>l</span><span>a</span><span>n</span><span>n</span><span>e</span><span>r</span>
@@ -147,42 +160,50 @@
         </div>
 
         <div class="flex gap-4 items-center">
-            <button onclick="app.toggleTheme()" class="text-gray-500 hover:text-gold-500 transition-colors">
+            <button onclick="app.toggleTheme()" class="text-gray-500 hover:text-gold-500 transition-colors p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
                 <i class="ph ph-moon text-xl dark:hidden"></i>
                 <i class="ph ph-sun text-xl hidden dark:block"></i>
             </button>
-            <button onclick="app.ui.openSettings()" class="text-gray-500 hover:text-gold-500 transition-colors">
+            <button onclick="app.ui.openSettings()" class="text-gray-500 hover:text-gold-500 transition-colors p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
                 <i class="ph ph-gear text-xl"></i>
             </button>
         </div>
     </header>
 
     <!-- Main Content Area -->
-    <main id="app-container" class="flex-1 relative overflow-hidden">
+    <main id="app-container" class="flex-1 relative overflow-hidden flex flex-col">
         <!-- Views will be injected here -->
     </main>
 
     <!-- Modals Container -->
-    <div id="modal-layer" class="fixed inset-0 z-50 pointer-events-none flex items-center justify-center"></div>
+    <div id="modal-layer" class="fixed inset-0 z-50 pointer-events-none flex items-center justify-center p-4"></div>
 
     <!-- Toast Notification -->
-    <div id="toast" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-maroon-500 text-white px-6 py-3 rounded-full shadow-xl opacity-0 transition-opacity duration-300 pointer-events-none z-50 text-sm font-medium">
-        Notification
+    <div id="toast" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-maroon-500 text-white px-6 py-3 rounded-full shadow-2xl opacity-0 transition-opacity duration-300 pointer-events-none z-[60] text-sm font-medium flex items-center gap-2">
+        <i class="ph ph-info"></i> <span id="toast-msg">Notification</span>
     </div>
 
     <script>
         // --- Utilities ---
         const Utils = {
             uuid: () => Date.now().toString(36) + Math.random().toString(36).substr(2),
-            formatDate: (str) => new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            formatDate: (str) => {
+                if(!str) return '';
+                const d = new Date(str);
+                return isNaN(d) ? str : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            },
             getDaysArray: (start, end) => {
                 const arr = [];
-                for(let dt = new Date(start); dt <= new Date(end); dt.setDate(dt.getDate()+1)){
+                const dt = new Date(start);
+                const endDt = new Date(end);
+                while (dt <= endDt) {
                     arr.push(new Date(dt).toISOString().split('T')[0]);
+                    dt.setDate(dt.getDate() + 1);
                 }
                 return arr;
             },
             getDateRangeDisplay: (startDate, endDate) => {
+                if(!startDate || !endDate) return '';
                 const start = new Date(startDate);
                 const end = new Date(endDate);
                 const days = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
@@ -253,46 +274,26 @@
                 }
             },
 
-            // UPDATED: Robust call method with Strict Model Fallback & Future-Proofing
             call: async (prompt, responseSchema = null) => {
                 const apiKey = Store.getApiKey();
-                if (!apiKey) throw new Error("API Key missing");
+                if (!apiKey) throw new Error("API Key missing. Please set it in Settings.");
 
-                // Priority: 
-                // 1. Future/Source models (2.5/3) - if they exist for you
-                // 2. Latest Stable (1.5-flash/pro) - high chance of success
-                // 3. Specific Versions (001/002) - fallbacks for strict stability
+                // UPDATED: Prioritize currently supported models
                 const models = [
-                    // The "Future" models from your source
-                    { name: 'gemini-2.5-flash', version: 'v1beta' },
-                    { name: 'gemini-3-pro-preview', version: 'v1beta' },
-                    
-                    // The Current Gold Standards (Highly likely to work)
-                    { name: 'gemini-1.5-flash', version: 'v1beta' },
-                    { name: 'gemini-1.5-pro', version: 'v1beta' },
-                    
-                    // Specific Stable Versions (Fallbacks)
-                    { name: 'gemini-1.5-flash-001', version: 'v1beta' },
-                    { name: 'gemini-1.5-flash-002', version: 'v1beta' },
-                    { name: 'gemini-1.5-flash-8b', version: 'v1beta' }, // Fast variant
-                    
-                    // Legacy Fallbacks
-                    { name: 'gemini-1.0-pro', version: 'v1beta' },
-                    { name: 'gemini-pro', version: 'v1' } 
+                    { name: 'gemini-2.5-flash-preview-09-2025', version: 'v1beta' }, // Latest Preview
+                    { name: 'gemini-1.5-flash', version: 'v1beta' }, // Stable Fast
+                    { name: 'gemini-1.5-pro', version: 'v1beta' }   // Stable Smart
                 ];
                 
                 let lastError = null;
 
                 for (const modelConfig of models) {
                     try {
-                        console.log(`Attempting ${modelConfig.name} on ${modelConfig.version}`);
                         const url = `https://generativelanguage.googleapis.com/${modelConfig.version}/models/${modelConfig.name}:generateContent?key=${apiKey}`;
                         
                         const payload = { contents: [{ parts: [{ text: prompt }] }] };
                         
-                        // Only Attach Schema for models that definitely support it (1.5+)
-                        // We skip schema for 1.0/Pro legacy to prevent errors, relying on prompt engineering
-                        if (responseSchema && (modelConfig.name.includes('1.5') || modelConfig.name.includes('2.5') || modelConfig.name.includes('3'))) {
+                        if (responseSchema && (modelConfig.name.includes('1.5') || modelConfig.name.includes('2.5'))) {
                             payload.generationConfig = {
                                 responseMimeType: "application/json",
                                 responseSchema: responseSchema
@@ -311,20 +312,30 @@
                         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
                         if (!text) throw new Error("Empty AI response");
 
-                        // Clean markdown fences regardless of model/schema usage
-                        const cleanText = text.replace(/```json|```/g, '').trim();
+                        // UPDATED: Robust JSON Extraction
+                        // Finds the first '[' or '{' and the last ']' or '}'
+                        let jsonStr = text;
+                        const firstOpen = text.search(/[\{\[]/);
+                        const lastClose = text.search(/[\}\]][^}\]]*$/);
                         
-                        return JSON.parse(cleanText);
+                        if (firstOpen !== -1 && lastClose !== -1) {
+                            jsonStr = text.substring(firstOpen, lastClose + 1);
+                        } else {
+                            // Fallback cleanup
+                            jsonStr = text.replace(/```json|```/g, '').trim();
+                        }
+                        
+                        return JSON.parse(jsonStr);
 
                     } catch (e) {
                         console.warn(`${modelConfig.name} failed:`, e.message);
                         lastError = e;
-                        // Stop if it's an Auth error (Invalid Key), otherwise continue loop
+                        // Stop if it's an Auth error (Invalid Key) to prevent banning
                         if (e.message.includes('API key') || e.message.includes('403')) break;
                     }
                 }
                 
-                throw lastError || new Error("All AI models failed. Please check API Key permissions.");
+                throw lastError || new Error("All AI models failed. Please check API Key.");
             },
 
             generateItinerary: async (name, days, theme, tone) => {
@@ -350,16 +361,37 @@
                 };
                 const persona = personaMap[theme] || 'experienced event planner';
 
-                const prompt = `Act as a ${persona}. Generate a simple itinerary for "${name}". Duration: ${days} days. Theme: ${theme}. Tone: ${tone}. 3 highlights/day. Return strictly a JSON array matching dates (YYYY-MM-DD).`;
-                return await AI.call(prompt, schema);
+                // We ask for relative days (Day 1, Day 2) because specific dates might confuse the AI without context
+                // We will map them back to dates in the handler
+                const prompt = `Act as a ${persona}. Generate a simple itinerary for "${name}". Duration: ${days} days. Theme: ${theme}. Tone: ${tone}. Provide exactly 3 short highlights per day. Return a JSON Array of objects. Each object has "day_index" (integer 1 to ${days}) and "highlights" (array of strings). Do not include dates, just day numbers.`;
+                
+                // Slightly adjusted schema for robustness
+                const robustSchema = {
+                    type: "ARRAY",
+                    items: {
+                        type: "OBJECT",
+                        properties: {
+                            day_index: { type: "INTEGER" },
+                            highlights: { type: "ARRAY", items: { type: "STRING" } },
+                        },
+                        required: ["day_index", "highlights"]
+                    }
+                }
+                
+                return await AI.call(prompt, robustSchema);
             },
 
-            generateChecklist: async (context) => {
+            // UPDATED: Now accepts user notes and removes specific item limit
+            generateChecklist: async (context, userNotes) => {
                 const schema = {
                     type: "ARRAY",
                     items: { type: "STRING" }
                 };
-                const prompt = `Create a checklist of 5 practical preparation items for: ${context}. Keep items short. Return strictly a JSON array of strings.`;
+                
+                const prompt = `Create a comprehensive but practical checklist for: "${context}".
+                ${userNotes ? `Additional context provided by user: "${userNotes}".` : ''}
+                Include as many items as strictly necessary for this specific activity, but do not go overboard (keep it practical). Return strictly a JSON array of strings.`;
+                
                 return await AI.call(prompt, schema);
             }
         };
@@ -373,11 +405,12 @@
                     currentView: 'dashboard',
                     activeEventId: null,
                     activeDay: null,
+                    activeTab: 'General',
                     calendarSelection: { start: null, end: null },
-                    calendarViewDate: new Date(), // Init here
+                    calendarViewDate: new Date(),
                     tempAiItinerary: null,
-                    touchStartX: 0, // For Swipe
-                    lastScroll: 0   // For Wheel Debounce
+                    touchStartX: 0,
+                    lastScroll: 0
                 };
                 this.init();
             }
@@ -386,15 +419,6 @@
                 const data = Store.get();
                 if (data.theme === 'dark') document.documentElement.classList.add('dark');
                 
-                // Magic Link Init
-                const urlParams = new URLSearchParams(window.location.search);
-                const magicKey = urlParams.get('key');
-                if (magicKey) {
-                    Store.setApiKey(magicKey);
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                    setTimeout(() => app.showToast("AI Features Activated!"), 1000);
-                }
-
                 this.router = {
                     navigate: (view, params = {}) => {
                         this.state.currentView = view;
@@ -414,9 +438,12 @@
 
             showToast(msg) {
                 const el = document.getElementById('toast');
-                el.innerText = msg;
+                const msgEl = document.getElementById('toast-msg');
+                msgEl.innerText = msg;
                 el.style.opacity = '1';
-                setTimeout(() => el.style.opacity = '0', 3000);
+                // Reset animation
+                clearTimeout(this.toastTimeout);
+                this.toastTimeout = setTimeout(() => el.style.opacity = '0', 3000);
             }
 
             render() {
@@ -432,7 +459,6 @@
                 const html = `
                     <div class="h-full overflow-y-auto p-6 animate-fade-in min-h-0 pb-24 safe-pb">
                         <div class="max-w-4xl mx-auto">
-                            <!-- UPDATED: Refined Dashboard Header -->
                             <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
                                 <div>
                                     <h2 class="font-serif text-3xl text-maroon-500 dark:text-white mb-1">My Events</h2>
@@ -492,20 +518,20 @@
                 const sortedDates = Object.keys(event.days).sort();
 
                 const html = `
-                    <div class="h-full flex flex-col animate-fade-in">
-                        <div class="px-6 py-4 bg-white/50 dark:bg-onyx/50 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center backdrop-blur-md sticky top-0 z-10">
+                    <div class="h-full flex flex-col animate-fade-in relative">
+                        <div class="px-6 py-4 bg-white/80 dark:bg-onyx/80 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center backdrop-blur-md sticky top-0 z-10 shadow-sm">
                             <button onclick="app.router.navigate('dashboard')" class="text-sm font-semibold text-gray-500 hover:text-maroon-500 flex items-center gap-1">
-                                <i class="ph ph-caret-left"></i> Back to Hub
+                                <i class="ph ph-caret-left"></i> Back
                             </button>
                             <div class="flex gap-2">
-                                <button onclick="app.handlers.downloadICS()" class="p-2 text-gray-500 hover:text-gold-500" title="Export"><i class="ph ph-calendar-plus text-lg"></i></button>
-                                <button onclick="app.handlers.shareEvent()" class="p-2 text-gray-500 hover:text-gold-500" title="Share"><i class="ph ph-share-network text-lg"></i></button>
-                                <button onclick="app.ui.openDeleteConfirm('${event.id}')" class="p-2 text-gray-400 hover:text-red-500" title="Delete"><i class="ph ph-trash text-lg"></i></button>
+                                <button onclick="app.handlers.downloadICS()" class="p-2 text-gray-500 hover:text-gold-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800" title="Export"><i class="ph ph-calendar-plus text-lg"></i></button>
+                                <button onclick="app.handlers.shareEvent()" class="p-2 text-gray-500 hover:text-gold-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800" title="Share"><i class="ph ph-share-network text-lg"></i></button>
+                                <button onclick="app.ui.openDeleteConfirm('${event.id}')" class="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800" title="Delete"><i class="ph ph-trash text-lg"></i></button>
                             </div>
                         </div>
 
                         <!-- Header -->
-                        <div class="px-6 py-8 md:px-12 bg-transparent">
+                        <div class="px-6 py-8 md:px-12 bg-transparent flex-none">
                             <div class="max-w-5xl mx-auto flex flex-row justify-between items-start gap-4">
                                 <div class="flex-1 min-w-0">
                                     <h1 class="font-serif text-2xl md:text-3xl text-maroon-500 dark:text-white mb-1 truncate leading-tight">${event.name}</h1>
@@ -520,7 +546,7 @@
                             </div>
                         </div>
 
-                        <div class="flex-1 overflow-y-auto p-6 min-h-0 pb-24 safe-pb">
+                        <div class="flex-1 overflow-y-auto p-6 min-h-0 pb-32 safe-pb">
                             <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 ${sortedDates.map((dateStr, index) => {
                                     const dayData = event.days[dateStr];
@@ -530,7 +556,7 @@
                                     const progress = totalTasks === 0 ? 0 : (doneTasks / totalTasks) * 100;
 
                                     return `
-                                        <div onclick="app.ui.openDayModal('${dateStr}')" class="bg-white dark:bg-charcoal p-5 rounded-lg border border-gray-100 dark:border-gray-800 hover:border-gold-500 cursor-pointer transition-all group h-full flex flex-col">
+                                        <div onclick="app.ui.openDayModal('${dateStr}')" class="bg-white dark:bg-charcoal p-5 rounded-lg border border-gray-100 dark:border-gray-800 hover:border-gold-500 cursor-pointer transition-all group h-full flex flex-col shadow-sm hover:shadow-md">
                                             <div class="flex justify-between items-start mb-3">
                                                 <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Day ${index + 1}</span>
                                                 <span class="text-xs text-gold-500 font-serif italic">${Utils.formatDate(dateStr)}</span>
@@ -560,7 +586,6 @@
                     this.modalLayer.classList.add('pointer-events-none');
                 },
                 renderModal: (content, customClasses = 'max-w-md w-full') => {
-                    // UPDATED: Added id="modal-content-panel" to target specifically for updates
                     this.modalLayer.innerHTML = `
                         <div class="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity opacity-0 animate-[fadeIn_0.2s_forwards]" onclick="app.ui.closeModal()"></div>
                         <div id="modal-content-panel" class="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-2xl p-4 md:p-6 relative z-10 opacity-0 animate-[fadeIn_0.3s_0.1s_forwards] ${customClasses}">${content}</div>
@@ -587,8 +612,11 @@
                     app.ui.renderModal(`
                         <h3 class="font-serif text-lg mb-4 text-maroon-500 dark:text-white">Settings</h3>
                         <label class="block text-xs uppercase tracking-wide text-gray-500 mb-2">Gemini API Key</label>
-                        <input type="password" id="api-key-input" value="${Store.getApiKey() || ''}" class="w-full bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-gray-700 rounded p-3 text-sm focus:border-gold-500 outline-none mb-4" placeholder="Enter key">
-                        <button onclick="app.handlers.saveSettings()" class="w-full bg-maroon-500 text-white py-3 rounded hover:bg-maroon-600 transition-colors">Save Securely</button>
+                        <div class="relative">
+                            <input type="password" id="api-key-input" value="${Store.getApiKey() || ''}" class="w-full bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-gray-700 rounded p-3 text-sm focus:border-gold-500 outline-none mb-4 pr-10" placeholder="Enter key">
+                        </div>
+                        <button onclick="app.handlers.saveSettings()" class="w-full bg-maroon-500 text-white py-3 rounded hover:bg-maroon-600 transition-colors font-medium">Save Securely</button>
+                        <p class="text-xs text-gray-400 mt-4 text-center">Stored locally on your device.</p>
                     `);
                 },
 
@@ -605,7 +633,7 @@
                                 </button>
                                 <div class="flex items-center gap-1 bg-gray-100 dark:bg-white/5 rounded-lg p-1">
                                     <button onclick="app.handlers.prevMonth()" class="p-1 hover:text-gold-500"><i class="ph ph-caret-left"></i></button>
-                                    <span id="cal-month-label" class="text-xs font-medium w-20 text-center"></span>
+                                    <span id="cal-month-label" class="text-xs font-medium w-20 text-center select-none"></span>
                                     <button onclick="app.handlers.nextMonth()" class="p-1 hover:text-gold-500"><i class="ph ph-caret-right"></i></button>
                                 </div>
                             </div>
@@ -613,9 +641,18 @@
                         <div class="mb-6">
                             <input type="text" id="event-name" class="w-full bg-transparent border-b border-gray-200 dark:border-gray-700 py-2 text-lg focus:border-gold-500 outline-none font-serif" placeholder="e.g. Kyoto Trip" enterkeyhint="done" onkeyup="if(event.key==='Enter')this.blur()">
                         </div>
-                        <div id="calendar-grid" class="grid grid-cols-7 gap-1 mb-6 text-center text-sm h-[17rem] content-start overflow-hidden" onwheel="app.handlers.scrollMonth(event)" ontouchstart="app.handlers.touchStart(event)" ontouchend="app.handlers.touchEnd(event)"></div>
+                        <div id="calendar-grid" class="grid grid-cols-7 gap-1 mb-6 text-center text-sm h-[17rem] content-start overflow-hidden select-none"></div>
                         <button onclick="app.handlers.createEvent()" class="w-full bg-gold-500 text-white py-3 rounded hover:bg-gold-600 transition-colors font-medium">Create Event</button>
                     `);
+                    
+                    // Attach Wheel listener explicitly with passive: false
+                    const grid = document.getElementById('calendar-grid');
+                    if(grid) {
+                        grid.addEventListener('wheel', app.handlers.scrollMonth, { passive: false });
+                        grid.addEventListener('touchstart', app.handlers.touchStart, { passive: true });
+                        grid.addEventListener('touchend', app.handlers.touchEnd, { passive: true });
+                    }
+                    
                     app.ui.renderCalendarGrid();
                 },
 
@@ -623,7 +660,6 @@
                     const grid = document.getElementById('calendar-grid');
                     if (!grid) return;
                     
-                    // NEW: Slide Animation triggers reflow for visual clue
                     grid.classList.remove('animate-slide-in');
                     void grid.offsetWidth; // Trigger reflow
                     grid.classList.add('animate-slide-in');
@@ -663,18 +699,87 @@
                     `, 'max-w-md w-full');
                 },
 
+                // NEW: Open specific modal for Auto-List prompting
+                openAutoListModal: (context) => {
+                    app.ui.renderModal(`
+                        <div class="flex-none flex justify-between items-start mb-6 border-b border-gray-100 dark:border-gray-800 pb-4">
+                            <h3 class="font-serif text-xl text-maroon-500 dark:text-white">Auto-List</h3>
+                            <button onclick="app.ui.openDayModal('${app.state.activeDay}')" class="text-gray-400 hover:text-red-500"><i class="ph ph-x text-xl"></i></button>
+                        </div>
+                        <p class="text-sm text-gray-500 mb-4">Generating tasks for: <span class="font-bold text-gray-700 dark:text-gray-300">${context}</span></p>
+                        <div class="mb-6">
+                            <label class="block text-xs uppercase tracking-wide text-gray-500 mb-2">Specific Details (Optional)</label>
+                            <textarea id="auto-list-input" class="w-full bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-gray-700 rounded p-3 text-sm focus:border-gold-500 outline-none h-24 resize-none" placeholder="e.g. 'Vegan options', 'Rainy weather', 'With kids', 'Budget friendly'"></textarea>
+                        </div>
+                        <div class="flex gap-3">
+                            <button onclick="app.ui.openDayModal('${app.state.activeDay}')" class="flex-1 py-3 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 rounded transition-colors">Cancel</button>
+                            <button onclick="app.handlers.submitAutoList()" class="flex-1 bg-gold-500 text-white py-3 rounded-lg shadow-md hover:bg-gold-600 transition-colors flex items-center justify-center gap-2">
+                                <i class="ph ph-magic-wand"></i> Generate
+                            </button>
+                        </div>
+                    `, 'max-w-md w-full');
+                    // Focus input
+                    setTimeout(() => document.getElementById('auto-list-input').focus(), 100);
+                },
+
+                // UPDATED: Now maps strictly by array index to prevent blank screens
                 openFullItineraryPreviewModal: (itinerary) => {
                     const event = Store.get().events.find(e => e.id === app.state.activeEventId);
-                    app.state.tempAiItinerary = itinerary.filter(d => event.days[d.date]);
+                    const sortedDates = Object.keys(event.days).sort();
+                    
+                    // Robust mapping: Use array index 'i' to match sorted dates sequentially
+                    app.state.tempAiItinerary = itinerary.map((item, i) => {
+                        if (i < sortedDates.length) {
+                            return {
+                                date: sortedDates[i],
+                                highlights: item.highlights || [] // Ensure array
+                            };
+                        }
+                        return null;
+                    }).filter(item => item !== null);
+                    
+                    // Handle empty state (though unlikely with robust mapping)
+                    if(app.state.tempAiItinerary.length === 0) {
+                         app.ui.renderModal(`
+                            <div class="text-center p-8">
+                                <i class="ph ph-warning-circle text-4xl text-maroon-500 mb-4"></i>
+                                <p class="text-gray-500">We couldn't map the AI suggestions to your dates.</p>
+                                <button onclick="app.ui.closeModal()" class="mt-4 text-gold-500 underline">Close</button>
+                            </div>
+                         `);
+                         return;
+                    }
                     
                     const content = app.state.tempAiItinerary.map((d, i) => `
                         <div class="p-4 border-b border-gray-100 dark:border-gray-800">
-                            <h4 class="font-serif text-lg text-maroon-500 dark:text-gold-400 mb-2">Day ${i+1}: ${Utils.formatDate(d.date)}</h4>
-                            <label class="flex items-center text-xs font-bold text-gray-400 uppercase mb-2"><input type="checkbox" class="accent-gold-500 mr-2" id="day-select-${d.date}" checked> Select All</label>
-                            <div class="pl-6 space-y-2">${d.highlights.map(h => {
-                                const exists = event.days[d.date].highlights.includes(h);
-                                return `<div class="text-sm flex items-start gap-2 ${exists?'text-gray-400 line-through':'text-gray-700 dark:text-gray-300'}"><i class="ph ph-circle-dashed mt-1 flex-none ${exists?'text-gray-400':'text-gold-500'}"></i><span class="break-words min-w-0 flex-1">${h}</span></div>`;
-                            }).join('')}</div>
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-serif text-lg text-maroon-500 dark:text-gold-400">Day ${i+1}: ${Utils.formatDate(d.date)}</h4>
+                                <label class="flex items-center text-xs font-bold text-gray-400 uppercase cursor-pointer hover:text-gold-500 transition-colors">
+                                    <input type="checkbox" class="accent-gold-500 mr-2" id="day-select-${d.date}" checked onchange="app.handlers.toggleDaySelection('${d.date}')"> 
+                                    Select All
+                                </label>
+                            </div>
+                            
+                            <div class="pl-2 space-y-2" id="day-container-${d.date}">
+                                ${d.highlights.map((h, hIdx) => {
+                                    const exists = event.days[d.date].highlights.includes(h);
+                                    const inputId = `highlight-select-${d.date}-${hIdx}`;
+                                    
+                                    if (exists) {
+                                         return `
+                                         <div class="text-sm flex items-start gap-2 text-gray-400 line-through opacity-60 px-2 py-1">
+                                            <i class="ph ph-check-circle mt-1 flex-none"></i>
+                                            <span class="break-words min-w-0 flex-1">${h} (Added)</span>
+                                         </div>`;
+                                    }
+
+                                    return `
+                                    <label class="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 p-2 rounded transition-colors group">
+                                        <input type="checkbox" class="accent-gold-500 mt-1 flex-none highlight-checkbox-${d.date}" id="${inputId}" value="${hIdx}" checked>
+                                        <span class="break-words min-w-0 flex-1 group-hover:text-gold-600 dark:group-hover:text-gold-400 transition-colors">${h}</span>
+                                    </label>`;
+                                }).join('')}
+                            </div>
                         </div>
                     `).join('');
 
@@ -684,7 +789,7 @@
                             <button onclick="app.ui.closeModal()" class="text-gray-400 hover:text-red-500"><i class="ph ph-x text-xl"></i></button>
                         </div>
                         <div class="flex-1 overflow-y-auto mb-6 border border-gray-200 dark:border-gray-700 rounded-lg">${content}</div>
-                        <div class="flex-none flex gap-3"><button onclick="app.ui.closeModal()" class="flex-1 py-3 text-gray-500">Cancel</button><button onclick="app.handlers.confirmFullItinerary()" class="flex-1 bg-gold-500 text-white py-3 rounded-lg shadow-md">Add Plans</button></div>
+                        <div class="flex-none flex gap-3"><button onclick="app.ui.closeModal()" class="flex-1 py-3 text-gray-500">Cancel</button><button onclick="app.handlers.confirmFullItinerary()" class="flex-1 bg-gold-500 text-white py-3 rounded-lg shadow-md hover:bg-gold-600 transition-colors">Add Selected Plans</button></div>
                     `, 'max-w-3xl h-[85vh] flex flex-col');
                 },
 
@@ -715,7 +820,7 @@
                             <button onclick="app.handlers.switchTab('General')" class="pb-2 text-sm font-medium whitespace-nowrap border-b-2 ${activeTab==='General'?'border-maroon-500 text-maroon-500 dark:text-white dark:border-white':'border-transparent text-gray-400'}">General</button>
                             ${dayData.highlights.map(h=>`<button onclick="app.handlers.switchTab('${h}')" class="pb-2 text-sm font-medium whitespace-nowrap border-b-2 ${activeTab===h?'border-maroon-500 text-maroon-500 dark:text-white dark:border-white':'border-transparent text-gray-400'}">${h}</button>`).join('')}
                         </div>
-                        <div class="flex-1 overflow-y-auto relative min-h-0">
+                        <div class="flex-1 overflow-y-auto relative min-h-0 pr-1">
                             <div class="flex justify-between items-center mb-3 sticky top-0 bg-white dark:bg-[#1E1E1E] z-10 py-2"><span class="text-xs font-bold text-gray-400 uppercase">Checklist: ${activeTab}</span><button onclick="app.handlers.autoList()" class="text-xs bg-gold-500/10 text-gold-600 dark:text-gold-400 px-2 py-1 rounded hover:bg-gold-500 hover:text-white transition-colors flex items-center gap-1"><i class="ph ph-magic-wand"></i> Auto-List</button></div>
                             <ul class="space-y-2">${checklists.map((t,i)=>`<li class="flex items-center gap-3 group"><label class="custom-checkbox flex items-center cursor-pointer"><input type="checkbox" class="hidden" ${t.done?'checked':''} onchange="app.handlers.toggleTask(${i})"><div class="w-5 h-5 border border-gray-300 dark:border-gray-600 rounded flex items-center justify-center">${t.done?'<i class="ph ph-check text-white text-xs"></i>':''}</div></label><span class="${t.done?'line-through text-gray-300 dark:text-gray-600':'text-gray-700 dark:text-gray-200'} text-sm flex-1 break-words min-w-0">${t.text}</span><button onclick="app.handlers.deleteTask(${i})" class="text-gray-300 hover:text-red-500 transition-colors"><i class="ph ph-trash"></i></button></li>`).join('')}</ul>
                             <div class="mt-4 flex gap-2"><input type="text" id="new-task-input" class="flex-1 bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-gray-700 rounded px-3 py-2 text-sm outline-none" placeholder="Add task..." onkeypress="if(event.key==='Enter')app.handlers.addTask()"><button onclick="app.handlers.addTask()" class="bg-gray-200 dark:bg-gray-700 px-4 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300"><i class="ph ph-plus"></i></button></div>
@@ -728,26 +833,21 @@
                 saveSettings: () => {
                     const key = document.getElementById('api-key-input').value.trim();
                     if(key) { Store.setApiKey(key); app.showToast('Key Saved'); app.ui.closeModal(); }
+                    else { app.showToast('Please enter a key'); }
                 },
                 prevMonth: () => { 
                     app.state.calendarViewDate.setMonth(app.state.calendarViewDate.getMonth()-1); 
                     app.ui.renderCalendarGrid(); 
-                    document.activeElement?.blur(); // Dismiss keyboard
                 },
                 nextMonth: () => { 
                     app.state.calendarViewDate.setMonth(app.state.calendarViewDate.getMonth()+1); 
                     app.ui.renderCalendarGrid(); 
-                    document.activeElement?.blur(); // Dismiss keyboard
                 },
-                
-                // Reset Calendar Handler
                 resetCalendar: () => {
                     app.state.calendarSelection = { start: null, end: null };
                     app.ui.renderCalendarGrid();
-                    document.activeElement?.blur(); // Dismiss keyboard
                 },
 
-                // Swipe and Scroll Support for Calendar
                 touchStart: (e) => app.state.touchStartX = e.changedTouches[0].screenX,
                 touchEnd: (e) => {
                     const diff = e.changedTouches[0].screenX - app.state.touchStartX;
@@ -765,13 +865,12 @@
                     if(!s.start || (s.start && s.end)) app.state.calendarSelection = { start: d, end: null };
                     else app.state.calendarSelection = d < s.start ? { start: d, end: s.start } : { start: s.start, end: d };
                     app.ui.renderCalendarGrid();
-                    document.activeElement?.blur(); // Dismiss keyboard
                 },
 
                 createEvent: () => {
                     const name = document.getElementById('event-name').value;
                     const { start, end } = app.state.calendarSelection;
-                    if (!name || !start || !end) return app.showToast('Fill all details');
+                    if (!name || !start || !end) return app.showToast('Fill name and dates');
                     const days = {};
                     Utils.getDaysArray(start, end).forEach(d => days[d] = { highlights: [], checklists: { 'General': [] } });
                     Store.addEvent({ id: Utils.uuid(), name, startDate: start, endDate: end, days });
@@ -794,8 +893,10 @@
                 switchTab: (t) => {
                     app.state.activeTab = t;
                     const evt = Store.get().events.find(e => e.id === app.state.activeEventId);
-                    // UPDATED: Now targeting #modal-content-panel instead of the fragile selector to fix the nested duplicate bug
-                    document.getElementById('modal-content-panel').innerHTML = app.ui.buildDayModalContent(evt.days[app.state.activeDay], app.state.activeDay);
+                    const panel = document.getElementById('modal-content-panel');
+                    if(panel) {
+                        panel.innerHTML = app.ui.buildDayModalContent(evt.days[app.state.activeDay], app.state.activeDay);
+                    }
                 },
 
                 showAddHighlightInput: () => {
@@ -815,7 +916,7 @@
                         if(!evt.days[app.state.activeDay].checklists[val]) evt.days[app.state.activeDay].checklists[val] = [];
                         Store.updateEvent(evt);
                         app.handlers.switchTab(app.state.activeTab);
-                        app.render();
+                        app.render(); // update background as well
                     } else app.handlers.hideAddHighlightInput();
                 },
                 removeHighlight: (val) => {
@@ -856,7 +957,6 @@
                     app.render();
                 },
 
-                // FIXED: Get input values BEFORE closing modal to prevent "cannot read properties of null"
                 startAutoPlan: async () => {
                     if(!Store.getApiKey()) return app.ui.openSettings();
                     const focusEl = document.getElementById('ai-focus');
@@ -877,15 +977,30 @@
                     } catch(e) { app.showToast(e.message); }
                 },
 
+                // NEW: Toggles all checkboxes for a specific day
+                toggleDaySelection: (dateStr) => {
+                    const master = document.getElementById(`day-select-${dateStr}`);
+                    const children = document.querySelectorAll(`.highlight-checkbox-${dateStr}`);
+                    children.forEach(c => c.checked = master.checked);
+                },
+
+                // UPDATED: Now scans individually checked items
                 confirmFullItinerary: () => {
                     const evt = Store.get().events.find(e => e.id === app.state.activeEventId);
                     let count = 0;
                     app.state.tempAiItinerary.forEach(d => {
-                        if(evt.days[d.date] && document.getElementById(`day-select-${d.date}`).checked) {
-                            d.highlights.forEach(h => {
-                                if(!evt.days[d.date].highlights.includes(h)) {
+                        if(evt.days[d.date]) {
+                            // Find all checked checkboxes for this day's highlights
+                            const checkboxes = document.querySelectorAll(`.highlight-checkbox-${d.date}:checked`);
+                            checkboxes.forEach(cb => {
+                                // We stored the highlight index in the value to allow for simple lookups 
+                                // avoiding character escaping issues in HTML attributes
+                                const index = parseInt(cb.value);
+                                const h = d.highlights[index];
+                                
+                                if(h && !evt.days[d.date].highlights.includes(h)) {
                                     evt.days[d.date].highlights.push(h);
-                                    evt.days[d.date].checklists[h] = [];
+                                    if(!evt.days[d.date].checklists[h]) evt.days[d.date].checklists[h] = [];
                                     count++;
                                 }
                             });
@@ -897,24 +1012,37 @@
                     app.showToast(`Added ${count} highlights`);
                 },
 
-                autoList: async () => {
+                // NEW: Open specific modal for Auto-List prompting instead of calling AI directly
+                autoList: () => {
                     if(!Store.getApiKey()) return app.ui.openSettings();
-                    const btn = document.querySelector('.ph-magic-wand').parentElement;
-                    const old = btn.innerHTML;
-                    btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i>';
+                    const context = app.state.activeTab === 'General' ? 'General Preparation' : app.state.activeTab;
+                    app.ui.openAutoListModal(context);
+                },
+
+                // NEW: Handler for the auto-list modal submission
+                submitAutoList: async () => {
+                    const notes = document.getElementById('auto-list-input').value;
+                    const context = app.state.activeTab === 'General' ? 'General Preparation' : app.state.activeTab;
+                    
+                    // Restore day view temporarily while loading to avoid abrupt empty screen
+                    app.ui.openDayModal(app.state.activeDay); 
+                    app.showToast('Consulting AI...');
+                    
                     try {
-                        const items = await AI.generateChecklist(app.state.activeTab === 'General' ? 'General Prep' : app.state.activeTab);
+                        const items = await AI.generateChecklist(context, notes);
                         const evt = Store.get().events.find(e => e.id === app.state.activeEventId);
+                        
                         items.forEach(t => evt.days[app.state.activeDay].checklists[app.state.activeTab].push({text: t, done: false}));
                         Store.updateEvent(evt);
-                        app.handlers.switchTab(app.state.activeTab);
-                        app.render();
+                        
+                        // Refresh the view
+                        app.handlers.switchTab(app.state.activeTab); 
+                        app.render(); 
+                        app.showToast(`Added ${items.length} tasks`);
                     } catch(e) { 
                         console.error(e);
-                        // FIXED: Show specific error message in toast
                         app.showToast(e.message || 'AI Error'); 
                     } 
-                    finally { btn.innerHTML = old; }
                 },
 
                 downloadICS: () => {
@@ -944,25 +1072,26 @@
                             });
                         } catch (error) {
                             if (error.name !== 'AbortError') {
-                                console.warn('Share failed, falling back', error);
-                                app.showToast('Share failed, downloading instead...');
-                                const a = document.createElement('a'); 
-                                a.href = URL.createObjectURL(f); 
-                                a.download = f.name; 
-                                a.click();
+                                app.showToast('Share failed, downloading...');
+                                app.handlers.downloadJSON(f);
                             }
                         }
                     } else {
-                        const a = document.createElement('a');
-                        a.href = URL.createObjectURL(f);
-                        a.download = f.name;
-                        a.click();
-                        app.showToast('Downloaded (Sharing not supported)');
+                        app.handlers.downloadJSON(f);
                     }
+                },
+                downloadJSON: (file) => {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(file);
+                    a.download = file.name;
+                    a.click();
+                    app.showToast('Downloaded');
                 }
             };
         }
-        const app = new App();
+        
+        // Init App and Expose to Global Scope for Inline Handlers
+        window.app = new App();
     </script>
 </body>
 </html>
